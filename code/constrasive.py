@@ -141,42 +141,44 @@ class NTXentLoss(torch.nn.Module):
         # N batches
     
         # cosine similarity - matrix of similarity between each pair 
-        #z1 = F.normalize(z1, p=2, dim=1)
-        #z2 = F.normalize(z2, p=2, dim=1)
-        out = torch.cat([z1, z2], dim=0)
-        out1, out2 = torch.split(out, z1.size(0), dim=0)
-        n_samples = len(out)
+        z1 = F.normalize(z1, p=2, dim=1)
+        z2 = F.normalize(z2, p=2, dim=1)
         
-        #similarity_mat = torch.matmul(z1, z2.T) 
-        #similarity_mat /= self.tmp
-        cov = torch.mm(out, out.t().contiguous())
-        sim = torch.exp(cov / self.tmp)
+        #out = torch.cat([z1, z2], dim=0)
+        #out1, out2 = torch.split(out, z1.size(0), dim=0)
+        #n_samples = len(out)
+        
+        similarity_mat = torch.matmul(z1, z2.T) 
+        similarity_mat /= self.tmp
+        
+        #cov = torch.mm(out, out.t().contiguous())
+        #sim = torch.exp(cov / self.tmp)
 
         # recude val of diagonal =similarity between a 2 views of same orig img
-        #i_mat = torch.eye(similarity_mat.size(0)).to(similarity_mat.device) * 1e8
-        #similarity_mat = similarity_mat - i_mat 
+        i_mat = torch.eye(similarity_mat.size(0)).to(similarity_mat.device) * 1e8
+        similarity_mat = similarity_mat - i_mat 
 
         # Mask out the diagonal (same image comparison)
-        #mask = torch.eye(similarity_mat.size(0), device=similarity_mat.device).bool()
-        #similarity_mat = similarity_mat.masked_fill(mask, -1e8)  # A large negative number
+        mask = torch.eye(similarity_mat.size(0), device=similarity_mat.device).bool()
+        similarity_mat = similarity_mat.masked_fill(mask, -1e8)  # A large negative number
 
-        mask = ~torch.eye(n_samples, device=sim.device).bool()
-        neg = sim.masked_select(mask).view(n_samples, -1).sum(dim=-1)
+        #mask = ~torch.eye(n_samples, device=sim.device).bool()
+        #neg = sim.masked_select(mask).view(n_samples, -1).sum(dim=-1)
 
-        pos = torch.exp(torch.sum(out1 * out2, dim=-1) / self.tmp)
-        pos = torch.cat([pos,pos], dim=0)
+        #pos = torch.exp(torch.sum(out1 * out2, dim=-1) / self.tmp)
+        #pos = torch.cat([pos,pos], dim=0)
         
         # Create labels for positive pairs (same image)
-        #labels = torch.arange(similarity_mat.size(0), device=similarity_mat.device)
+        labels = torch.arange(similarity_mat.size(0), device=similarity_mat.device)
         
         # CHECK
         #labels = torch.arange(similarity_mat.size(0)).to(similarity_mat.device) 
         #labels[::2] += 1 
         #labels[1::2] -= 1  
         
-        #loss = F.cross_entropy(similarity_mat, labels)
-        epsilon = 1e-8
-        loss = -torch.log(pos / (neg + epsilon)).mean()
+        loss = F.cross_entropy(similarity_mat, labels)
+        #epsilon = 1e-8
+        #loss = -torch.log(pos / (neg + epsilon)).mean()
         #loss = -torch.log(pos / neg).mean()
         return loss
 
@@ -215,8 +217,6 @@ def contrastive_train( encoder, pair_dl_train, pair_dl_test, loss_fn, optimizer,
         print(f"    train Contrastive Loss: {total_train_loss / len(pair_dl_train):.4f}")
         print(f"    test Contrastive Loss: {total_test_loss / len(pair_dl_test):.4f}")
         #print(f"Epoch [{epoch+1}/{num_epochs}] - Contrastive Loss: {total_loss / len(pair_dl_train):.4f}")
-        
-         
 
 
 
